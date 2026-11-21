@@ -1993,15 +1993,17 @@ document.addEventListener('fullscreenchange',updFs);
 document.addEventListener('webkitfullscreenchange',updFs);
 
 /* ---------- Nuvem (Firebase): entrar com Google e sincronizar entre aparelhos ---------- */
-/* PARA ATIVAR: copie para cá os mesmos valores do bloco FIREBASE_CONFIG do seu Controle de Notas SENAI
+/* PARA ATIVAR: crie um projeto Firebase só para este aplicativo e cole a configuração dentro do app (botão Nuvem)
    (Firebase > Configurações do projeto > Seus apps > Web). Esses valores NÃO são segredo: quem protege
    os dados são o login com Google e as regras do Firestore. Os dados deste painel ficam no documento
-   usuarios/{seu uid}/dados/notas_estadual, separado do painel do SENAI. */
+   usuarios/{seu uid}/dados/notas_estadual. */
 var FIREBASE_CONFIG = {
-  apiKey: 'COLE_AQUI',
-  authDomain: 'controle-notas-prof.firebaseapp.com',
-  projectId: 'controle-notas-prof',
-  appId: 'COLE_AQUI'
+  apiKey: 'AIzaSyDoME3pipOUhHWTdrxIPY-Jt9Z27hhLJlw',
+  authDomain: 'notas-helena-nasser.firebaseapp.com',
+  projectId: 'notas-helena-nasser',
+  storageBucket: 'notas-helena-nasser.firebasestorage.app',
+  messagingSenderId: '117669620970',
+  appId: '1:117669620970:web:acfd78819059c5b07dfb93'
 };
 /* Não precisa editar o código: dá para colar a configuração dentro do app (botão Nuvem). Ela fica guardada neste aparelho. */
 var FB_CFG_KEY = KEY+'-fbcfg';
@@ -2254,8 +2256,8 @@ function openCloudPanel(){
   function P(t,cls){ kids.push(h('p',{class:cls||'lead',text:t})); }
   if(st==='off'){
     P('A sincronização entre aparelhos ainda não está ativada neste aparelho.');
-    P('Para ativar, cole abaixo a configuração do Firebase, a mesma do seu Controle de Notas SENAI (Firebase > Configurações do projeto > Seus apps > Web > “firebaseConfig”). Esses valores não são segredo; quem protege as notas é o login com Google. Enquanto isso, os registros ficam só neste navegador: baixe backups com frequência.','hint');
-    var ta=h('textarea',{id:'fbTxt',rows:7,spellcheck:false,autocomplete:'off',placeholder:"const firebaseConfig = {\n  apiKey: \"...\",\n  authDomain: \"controle-notas-prof.firebaseapp.com\",\n  projectId: \"controle-notas-prof\",\n  appId: \"...\"\n};"}), er=h('p',{class:'err',role:'alert'});
+    P('Para ativar, cole abaixo a configuração do Firebase, a do projeto Firebase deste aplicativo (Firebase > Configurações do projeto > Seus apps > Web > “firebaseConfig”). Esses valores não são segredo; quem protege as notas é o login com Google. Enquanto isso, os registros ficam só neste navegador: baixe backups com frequência.','hint');
+    var ta=h('textarea',{id:'fbTxt',rows:7,spellcheck:false,autocomplete:'off',placeholder:"const firebaseConfig = {\n  apiKey: \"...\",\n  authDomain: \"SEU-PROJETO.firebaseapp.com\",\n  projectId: \"SEU-PROJETO\",\n  appId: \"...\"\n};"}), er=h('p',{class:'err',role:'alert'});
     kids.push(h('label',{class:'f',htmlFor:'fbTxt',text:'Configuração do Firebase'}),ta,er,h('div',{class:'foot'},
       h('button',{type:'button',class:'btn primary',text:'Ativar nuvem',onclick:function(){
         var c=fbParse(ta.value);
