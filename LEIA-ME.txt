@@ -1,0 +1,15 @@
+CONTROLE DE NOTAS — COLÉGIO ESTADUAL PROF.ª HELENA NASSER (aplicativo instalável)
+
+PUBLICAR NO GITHUB PAGES
+1. Crie um repositório novo (ex.: CONTROLE-NOTAS-HELENA-NASSER), público.
+2. Envie TODOS os arquivos desta pasta para a raiz do repositório (Add file > Upload files).
+3. Settings > Pages > Source: "Deploy from a branch", branch main, pasta /(root).
+4. Abra https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/ e instale pelo botão "Instalar app".
+
+LIGAR O FIREBASE (mesmo projeto do app SENAI)
+1. No app, clique em "Nuvem" e cole o bloco firebaseConfig do projeto (Firebase > Configurações do projeto > Seus apps > Web).
+2. Firebase > Authentication > Configurações > Domínios autorizados: confira que "SEU-USUARIO.github.io" está na lista (se o app SENAI já funciona nesse mesmo endereço, já está).
+3. Firestore > Regras: o app grava em usuarios/{uid}/dados/notas_estadual. Se as regras do SENAI liberam usuarios/{uid}/dados/{documento} para o dono, nada muda.
+
+SENHA DE ACESSO: a que você definiu (a senha não aparece no código, só uma assinatura dela).
+Depois de instalar, o app abre em tela cheia e funciona sem internet. Para atualizar a versão, envie os arquivos novos ao repositório e abra o app duas vezes.
