@@ -1,5 +1,5 @@
 /* Service worker do Controle de Notas Helena Nasser: funciona sem internet depois da primeira visita. */
-var VERSAO = 'notas-hn-d19a8264c9';
+var VERSAO = 'notas-hn-f817e9f38d';
 var CASCA = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 var EXTERNOS = /^https:\/\/(cdnjs\.cloudflare\.com|www\.gstatic\.com\/firebasejs|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
