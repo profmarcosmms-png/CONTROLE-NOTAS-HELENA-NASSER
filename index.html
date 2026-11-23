@@ -116,6 +116,13 @@ td.aluno{background:var(--surface);padding:4px 10px 4px 14px}
 tbody td{border-top:1px solid var(--rowline);padding:4px 5px}
 tbody tr:first-child td{border-top:0}
 tbody tr:hover td{background:var(--surface-2)}
+/* linha em destaque (aluno em lançamento) */
+tbody tr.foco td{background:var(--blue-soft);border-top-color:var(--blue);border-bottom:1px solid var(--blue)}
+tbody tr.foco td.aluno{box-shadow:inset 6px 0 0 var(--blue);font-weight:700}
+tbody tr.foco td.avc{background:var(--blue-soft)}
+tbody tr.foco input.av{background:#fff;border-color:var(--blue);box-shadow:0 0 0 2px var(--blue)}
+.launch tbody tr.foco td{background:var(--blue-soft)}
+.launch tbody tr.foco .n{color:var(--blue)}
 .stu{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;padding:2px 0;border-radius:6px}
 .stu .n{font-weight:600;display:block;white-space:nowrap;font-size:15px}
 .stu .num{color:var(--ink-2);font-weight:500;display:inline-block;min-width:34px}
@@ -312,6 +319,13 @@ input.av:disabled{background:var(--surface-2);cursor:not-allowed;opacity:.85}
 th.task .th-btn{font-size:13px}.th-btn .dd{font-size:11px}
 td.aluno{white-space:nowrap}
 
+/* modo lançamento: bimestre liberado esconde tudo e deixa só o quadro com nomes, tarefas e notas */
+body.lancando header.top, body.lancando #cursos, body.lancando .turmarow, body.lancando #stats, body.lancando .toolbar,
+body.lancando .conf-legend, body.lancando section.data, body.lancando #mfNote, body.lancando #banner{display:none}
+body.lancando .wrap{padding-top:10px}
+body.lancando .lockbar{position:sticky;top:0;z-index:6;margin-top:0}
+body.lancando .grid-wrap{max-height:calc(100vh - 84px)}
+
 </style>
 </head>
 <body class="locked">
@@ -461,6 +475,32 @@ function parseNota(raw,max){
   if(!/^\d+(\.\d+)?$/.test(raw)) return {ok:false};
   var n=Number(raw); if(n>max+1e-9) return {ok:false};
   return {ok:true,val:Math.round(n*100)/100};
+}
+
+/* nota nos campos de digitação: mostra sempre com decimal (7 vira 7,0) */
+function fmtNota(v){ return (v==null||v==='') ? '' : Number(v).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2,useGrouping:false}); }
+/* digitou só números? a vírgula entra sozinha: 75 vira 7,5; 10 vira 10 (e fecha em 10,0); 725 vira 7,25. Se digitar a vírgula, vale a sua. */
+function maskNota(inp,max){
+  inp.addEventListener('input',function(){
+    var raw=inp.value, out;
+    if(/[,.]/.test(raw)){
+      var pt=raw.split(/[,.]/), ip=pt[0].replace(/\D/g,'').slice(0,2), dp=pt.slice(1).join('').replace(/\D/g,'').slice(0,2);
+      out=(ip===''?'0':ip)+','+dp;
+    } else {
+      var d=raw.replace(/\D/g,'').slice(0,4), ip2, dp2;
+      if(d.slice(0,2)==='10' && max>=10){ ip2='10'; dp2=d.slice(2,4); }
+      else { ip2=d.slice(0,1); dp2=d.slice(1,3); }
+      out=ip2+(dp2!==''?','+dp2:'');
+    }
+    if(out!==raw){ inp.value=out; try{ inp.setSelectionRange(out.length,out.length); }catch(e){} }
+  });
+}
+/* ao sair do campo: 7 vira 7,0 */
+function padNota(inp){
+  var v=String(inp.value).trim().replace(/,$/,'');
+  if(v==='') return;
+  if(/^\d+$/.test(v)) inp.value=v+',0';
+  else if(/^\d+,$/.test(inp.value.trim())) inp.value=v+',0';
 }
 
 var ICONS = {
@@ -632,14 +672,19 @@ function renderLockBar(){
   var livre=bimLivre(c,bim);
   box.className='lockbar '+(livre?'open':'shut');
   box.append(ic(livre?'unlock':'lock',18),
-    h('span',{class:'lb-t'},h('strong',{text:bim+'º bimestre: '+(livre?'digitação liberada. ':'bloqueado. ')}),
-      livre?'Confira cada nota ao lançar e bloqueie ao terminar.':'As notas e as tarefas só podem ser alteradas depois de liberar.'),
+    h('span',{class:'lb-t'},h('strong',{text:(livre?tName(c)+' · ':'')+bim+'º bimestre: '+(livre?'digitação liberada. ':'bloqueado. ')}),
+      livre?'Digite só os números: 75 vira 7,5 e 10 vira 10,0. Bloqueie ao terminar.':'As notas e as tarefas só podem ser alteradas depois de liberar.'),
     h('button',{type:'button',class:'btn'+(livre?'':' primary'),id:'btnLiberar',onclick:function(){
       if(livre) delete liberados[c.id+'|'+bim]; else liberados[c.id+'|'+bim]=1;
       render(); toast(livre?bim+'º bimestre bloqueado.':bim+'º bimestre liberado para digitar.');
     },text:livre?'Bloquear de novo':'Liberar para digitar'}));
 }
-function render(){ closePop(false); renderConf(); renderNiveis(); renderTabs(); renderHead(); renderVista(); renderLockBar(); renderStats(); renderGrid(); renderNote(); }
+function render(){ closePop(false); renderConf(); renderNiveis(); renderTabs(); renderHead(); renderVista(); renderLockBar(); renderStats(); renderGrid(); renderNote(); renderModo(); }
+/* com o bimestre liberado, esconde o cabeçalho e deixa só o quadro de tarefas e notas com os nomes */
+function renderModo(){
+  var c=curTurma(), bim=vistaBim()?parseInt(state.ui.vista,10):0;
+  document.body.classList.toggle('lancando',!!(c && bim && bimLivre(c,bim) && !state.ui.conf));
+}
 function renderSoft(){ renderStats(); renderGrid(); }
 var CONF_MSG='Modo confidencial ligado. Saia dele para ver ou lançar notas.';
 function renderConf(){
@@ -761,6 +806,17 @@ function renderGrid(){
   if(state.ui.vista==='anual'){ if(c.alunos.length) gridAnual(wrap,c); }
   else gridBim(wrap,c,Number(state.ui.vista));
   wrap.scrollLeft=sl; wrap.scrollTop=stp;
+  applyFoco();
+}
+/* linha do aluno em destaque enquanto se lança a nota */
+var focoId=null;
+function setFoco(tr){
+  var id=tr?tr.getAttribute('data-aluno'):null; if(!id||id===focoId) return;
+  focoId=id; applyFoco();
+}
+function applyFoco(){
+  var rows=document.querySelectorAll('#gridWrap tbody tr[data-aluno]');
+  for(var i=0;i<rows.length;i++) rows[i].classList.toggle('foco',rows[i].getAttribute('data-aluno')===focoId);
 }
 
 var justUnlocked=null;
@@ -831,15 +887,17 @@ function cycleCell(c,b,i,s,aluno){
 function gridInput(c,b,aluno,field,label,after){
   var key=c.id+'|'+b+'|'+aluno.id, dataF=b+'-'+field;
   var inp=h('input',{type:'text',class:'av',inputMode:'decimal',autocomplete:'off','data-f':dataF,
-    'aria-label':label+' de '+aluno.nome,value:fmtIn((state.aval[key]||{})[field])});
+    'aria-label':label+' de '+aluno.nome,value:fmtNota((state.aval[key]||{})[field])});
+  maskNota(inp,NOTA_MAX);
   if(!bimLivre(c,b)){ inp.disabled=true; inp.title='Bimestre bloqueado: clique em “Liberar para digitar”.'; }
   inp.addEventListener('change',function(){
+    padNota(inp);
     var res=parseNota(inp.value,NOTA_MAX);
     if(!res.ok){ inp.setAttribute('aria-invalid','true'); toast('A nota deve ficar entre 0 e 10.'); inp.focus(); inp.select(); return; }
     inp.removeAttribute('aria-invalid');
     var bag=state.aval[key];
     if(res.val==null){ if(bag){ delete bag[field]; if(bagEmpty(bag)) delete state.aval[key]; } }
-    else { bag=state.aval[key]=bag||{}; bag[field]=res.val; inp.value=fmtIn(res.val); }
+    else { bag=state.aval[key]=bag||{}; bag[field]=res.val; inp.value=fmtNota(res.val); }
     persist(); if(after) after();
   });
   inp.addEventListener('keydown',function(e){
@@ -889,7 +947,7 @@ function gridBim(wrap,c,b){
   var body=h('tbody');
   if(c.alunos.length && !alunos.length) body.append(h('tr',{},h('td',{colSpan:NSLOT+5},h('div',{class:'empty',text:'Nenhum aluno encontrado com esse filtro.'}))));
   alunos.forEach(function(a){
-    var tr=h('tr',{}, alunoTd(c,a));
+    var tr=h('tr',{'data-aluno':a.id}, alunoTd(c,a));
     sl.forEach(function(s,i){ tr.append(h('td',{class:'tk'+(i===0?' ebeg':'')},cellBtn(c,b,i,s,a))); });
     var ts=tarefasSoma(c,b,a.id), av=getAv(c,b,a.id);
     if(conf){
@@ -1046,12 +1104,14 @@ function openLaunch(c,b,i){
   if(state.ui.conf){ toast(CONF_MSG); return; }
   var s=slotsOf(c,b)[i]; if(!s) return;
   var mx=s.valor, rows=[], saveBtn, tbody=h('tbody');
+  tbody.addEventListener('focusin',function(e){ var tr=e.target.closest('tr'); Array.prototype.forEach.call(tbody.children,function(x){ x.classList.toggle('foco',x===tr); }); });
   c.alunos.forEach(function(a,idx){
     var r=recOf(c,b,i,a.id)||{}, st=STATUS[r.status]?r.status:'pendente';
     var sel=h('select',{'aria-label':'Situação de '+a.nome});
     ['pendente','feita','atrasada','nao'].forEach(function(k){ sel.append(h('option',{value:k,text:STATUS[k].label})); });
     sel.value=st;
-    var nota=h('input',{type:'text',class:'nt',inputMode:'decimal',autocomplete:'off','aria-label':'Nota de '+a.nome,placeholder:'cheia',value:fmtIn(r.nota)});
+    var nota=h('input',{type:'text',class:'nt',inputMode:'decimal',autocomplete:'off','aria-label':'Nota de '+a.nome,placeholder:'cheia',value:fmtNota(r.nota)});
+    maskNota(nota,mx); nota.addEventListener('change',function(){ padNota(nota); upd(); });
     var fin=h('span',{class:'fin','aria-label':'Nota final de '+a.nome});
     function upd(){
       var res=parseNota(nota.value,mx);
@@ -1121,7 +1181,8 @@ function openCellPop(c,b,i,s,aluno,anchor){
   if(state.ui.conf){ toast(CONF_MSG); return; }
   var key=rkey(c,b,i,aluno.id), r=state.registros[key]||{};
   var status=STATUS[r.status]?r.status:'pendente', btns={};
-  var nota=h('input',{type:'text',id:'cNota',inputMode:'decimal',autocomplete:'off',placeholder:'cheia ('+fmt(s.valor)+')',value:fmtIn(r.nota)});
+  var nota=h('input',{type:'text',id:'cNota',inputMode:'decimal',autocomplete:'off',placeholder:'cheia ('+fmt(s.valor)+')',value:fmtNota(r.nota)});
+  maskNota(nota,s.valor); nota.addEventListener('change',function(){ padNota(nota); });
   var obs=h('textarea',{id:'cObs',maxLength:300,rows:2,placeholder:'Opcional: observação',value:r.obs||''});
   var err=h('p',{class:'err',role:'alert'});
   var opts=h('div',{class:'opts',role:'group','aria-label':'Situação'});
@@ -2324,6 +2385,11 @@ function openCloudPanel(){
   openDialog(h.apply(null,['div',{class:'dlg',id:'cloudPanel'}].concat(kids)));
 }
 $('#btnCloud').addEventListener('click',openCloudPanel);
+/* destaque da linha do aluno: ao focar ou clicar em qualquer campo/célula da linha */
+(function(){
+  var gw=$('#gridWrap');
+  ['focusin','click'].forEach(function(ev){ gw.addEventListener(ev,function(e){ var tr=e.target.closest&&e.target.closest('tbody tr[data-aluno]'); if(tr) setFoco(tr); }); });
+})();
 dlg.addEventListener('close',function(){ setTimeout(cloudReconcile,50); });
 window.addEventListener('online',function(){
   if(!CLOUD.auth){ cloudInit(); return; }
