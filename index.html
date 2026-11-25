@@ -326,6 +326,18 @@ body.lancando .wrap{padding-top:10px}
 body.lancando .lockbar{position:sticky;top:0;z-index:6;margin-top:0}
 body.lancando .grid-wrap{max-height:calc(100vh - 84px)}
 
+.launch td.num{text-align:center;font-weight:600}
+
+.rm-list{max-height:min(50vh,440px);overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+.rm-row{display:flex;align-items:center;gap:10px;padding:7px 12px;border-top:1px solid var(--line);cursor:pointer}
+.rm-row:first-child{border-top:0}
+.rm-row.on{background:var(--no-bg)}
+.rm-row input{width:18px;height:18px;flex:none}
+.rm-n{color:var(--ink-2);min-width:28px}
+.rm-nome{flex:1;font-weight:600}
+.rm-tag{font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.rm-tag.tem{color:var(--ok-fg);background:var(--ok-bg);border-color:#9AD3C2}
+
 </style>
 </head>
 <body class="locked">
@@ -373,6 +385,8 @@ body.lancando .grid-wrap{max-height:calc(100vh - 84px)}
     <span class="grow"></span>
     <button class="btn primary" id="btnImp" type="button">Importar PDF</button>
     <button class="btn" id="btnAddStu" type="button">Adicionar alunos</button>
+    <button class="btn" id="btnDelStu" type="button">Remover alunos</button>
+    <button class="btn" id="btnSiap" type="button">Enviar ao SIAP</button>
     <button class="btn" id="btnPdf" type="button">Imprimir / PDF</button>
   </div>
 
@@ -2015,6 +2029,104 @@ function openImportPdf(){
   openDialog(form,'#impFile',true);
 }
 
+/* ---------- Enviar ao SIAP: copia AVA 1 e AVA 2 do bimestre para o script do SIAP preencher na tela de notas ---------- */
+function openEnviarSiap(){
+  var c=curTurma(); if(!c){ toast('Escolha uma turma primeiro.'); return; }
+  if(!c.alunos.length){ toast('Esta turma ainda não tem alunos.'); return; }
+  var b0=vistaBim()||0;
+  if(!b0){ for(var k=NBIM;k>=1 && !b0;k--){ if(c.alunos.some(function(a){var v=getAv(c,k,a.id); return numOrNull(v.a1)!=null||numOrNull(v.a2)!=null;})) b0=k; } }
+  var sel=h('select',{id:'siapBim'}); for(var i=1;i<=NBIM;i++) sel.append(h('option',{value:String(i),text:i+'º bimestre'})); sel.value=String(b0||1);
+  var info=h('p',{class:'meta'}), tbody=h('tbody'), msg=h('p',{class:'meta',role:'status'}), btn;
+  var payload=null;
+  function montar(){
+    var b=Number(sel.value), ok=0, f1c=0, f2c=0, vazios=0, list=[];
+    tbody.replaceChildren();
+    c.alunos.forEach(function(a,idx){
+      var v=getAv(c,b,a.id), n1=numOrNull(v.a1), n2=numOrNull(v.a2);
+      list.push({n:idx+1,nome:a.nome,matricula:a.matricula||'',ava1:n1,ava2:n2});
+      if(n1==null) f1c++; if(n2==null) f2c++; if(n1!=null||n2!=null) ok++; else vazios++;
+      tbody.append(h('tr',{},h('td',{text:(idx+1)+'. '+a.nome}),h('td',{class:'num',text:n1==null?'–':fmtNota(n1)}),h('td',{class:'num',text:n2==null?'–':fmtNota(n2)})));
+    });
+    payload={app:'notas-helena-nasser',v:1,turma:tName(c),bimestre:b,gerado:new Date().toISOString(),alunos:list};
+    info.textContent=tName(c)+' · '+b+'º bimestre: '+ok+' '+plural(ok,'aluno com nota','alunos com nota')+(vazios?', '+vazios+' sem nenhuma nota':'')+'. Sem AVA 1: '+f1c+'. Sem AVA 2: '+f2c+'. Notas em branco não são enviadas.';
+    btn.disabled=!ok;
+  }
+  function copiar(){
+    var txt='NOTAS-HN::'+JSON.stringify(payload);
+    function fim(okc){ msg.textContent=okc?'Copiado! Agora abra a tela de notas no SIAP e use o botão “Colar notas do app”.':'Não consegui copiar sozinho. Selecione o texto da caixa abaixo e copie (Ctrl+C).'; if(!okc){ box.hidden=false; box.value=txt; box.focus(); box.select(); } }
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){fim(true);},function(){fim(false);}); }
+    else { box.hidden=false; box.value=txt; box.select(); var okc=false; try{ okc=document.execCommand('copy'); }catch(e){} box.hidden=okc; fim(okc); }
+  }
+  var box=h('textarea',{rows:4,readOnly:true,hidden:true,'aria-label':'Texto para copiar',style:'width:100%;margin-top:8px;font-size:12px'});
+  btn=h('button',{type:'button',class:'btn primary',text:'Copiar notas para o SIAP',onclick:copiar});
+  sel.addEventListener('change',function(){ msg.textContent=''; box.hidden=true; montar(); });
+  var form=h('form',{class:'dlg',onsubmit:function(e){ e.preventDefault(); }},
+    h('h2',{text:'Enviar AVA 1 e AVA 2 ao SIAP'}),
+    h('p',{class:'lead',text:'Copia as notas de AVA 1 e AVA 2 do bimestre escolhido. No SIAP, o script “Notas HN” cola e preenche os campos pelo nome do aluno. Quem salva é você, no próprio SIAP.'}),
+    h('label',{class:'f',htmlFor:'siapBim',text:'Bimestre'}),sel,info,
+    h('div',{class:'launch-scroll'},h('table',{class:'launch'},h('thead',{},h('tr',{},h('th',{scope:'col',text:'Aluno'}),h('th',{scope:'col',text:'AVA 1'}),h('th',{scope:'col',text:'AVA 2'}))),tbody)),
+    msg,box,
+    h('div',{class:'foot'},btn,h('button',{type:'button',class:'btn',onclick:closeDialog,text:'Fechar'})));
+  montar(); openDialog(form,'#siapBim',true);
+}
+
+/* ---------- Remover vários alunos de uma vez (as notas dos outros alunos não mudam) ---------- */
+function openRemoverAlunos(){
+  if(state.ui.conf){ toast(CONF_MSG); return; }
+  var c=curTurma(); if(!c||!c.alunos.length){ toast('Esta turma ainda não tem alunos.'); return; }
+  var cnt={};
+  Object.keys(state.registros).forEach(function(k){ var p=k.split('|'); if(p[0]===c.id) cnt[p[3]]=(cnt[p[3]]||0)+1; });
+  Object.keys(state.aval).forEach(function(k){ var p=k.split('|'); if(p[0]===c.id){ var b=state.aval[k]||{}; var n=(numOrNull(b.a1)!=null?1:0)+(numOrNull(b.a2)!=null?1:0); if(n) cnt[p[2]]=(cnt[p[2]]||0)+n; } });
+  var rows=[], list=h('div',{class:'rm-list'}), info=h('p',{class:'meta',role:'status'}), go, armed=false;
+  c.alunos.forEach(function(a,idx){
+    var n=cnt[a.id]||0, cb=h('input',{type:'checkbox','aria-label':'Remover '+a.nome});
+    cb.addEventListener('change',upd);
+    var lab=h('label',{class:'rm-row'},cb,h('span',{class:'rm-n',text:(idx+1)+'.'}),h('span',{class:'rm-nome',text:a.nome}),
+      h('span',{class:'rm-tag'+(n?' tem':''),text:n?n+' '+plural(n,'lançamento','lançamentos'):'sem lançamentos'}));
+    rows.push({a:a,cb:cb,n:n,row:lab}); list.append(lab);
+  });
+  function marcados(){ return rows.filter(function(r){return r.cb.checked;}); }
+  function upd(){
+    armed=false; var m=marcados(), comN=m.filter(function(r){return r.n>0;}).length;
+    rows.forEach(function(r){ r.row.classList.toggle('on',r.cb.checked); });
+    info.textContent=m.length?(m.length+' '+plural(m.length,'aluno marcado','alunos marcados')+(comN?'. Atenção: '+comN+' '+plural(comN,'tem','têm')+' lançamentos, que serão apagados junto.':'. Nenhum deles tem lançamentos.')):'Marque os alunos que quer remover. Os demais ficam com todas as notas.';
+    go.disabled=!m.length; go.textContent=m.length?'Remover '+m.length+' '+plural(m.length,'aluno','alunos'):'Remover marcados';
+  }
+  function marcarSem(){ rows.forEach(function(r){ r.cb.checked=(r.n===0); }); upd(); }
+  function marcarRepetidos(){
+    var g={}; rows.forEach(function(r){ var k=norm(r.a.nome); (g[k]=g[k]||[]).push(r); if(r.a.matricula){ var km='m'+r.a.matricula; (g[km]=g[km]||[]).push(r); } });
+    rows.forEach(function(r){ r.cb.checked=false; });
+    var achou=0;
+    Object.keys(g).forEach(function(k){
+      var gr=g[k]; if(gr.length<2) return;
+      var keep=gr.slice().sort(function(x,y){ return y.n-x.n; })[0];
+      gr.forEach(function(r){ if(r!==keep && !r.cb.checked){ r.cb.checked=true; achou++; } });
+    });
+    upd(); if(!achou) info.textContent='Não encontrei nomes ou matrículas repetidos nesta turma.';
+  }
+  go=h('button',{type:'button',class:'btn danger',disabled:true,text:'Remover marcados',onclick:function(){
+    var m=marcados(); if(!m.length) return;
+    if(!armed){ armed=true; go.textContent='Confirmar: remover '+m.length+' '+plural(m.length,'aluno','alunos'); return; }
+    snapshot();
+    var ids={}; m.forEach(function(r){ ids[r.a.id]=1; });
+    c.alunos=c.alunos.filter(function(a){return !ids[a.id];});
+    Object.keys(state.registros).forEach(function(k){ var p=k.split('|'); if(p[0]===c.id && ids[p[3]]) delete state.registros[k]; });
+    Object.keys(state.aval).forEach(function(k){ var p=k.split('|'); if(p[0]===c.id && ids[p[2]]) delete state.aval[k]; });
+    persist(); render(); refreshUndo(); closeDialog();
+    toast(m.length+' '+plural(m.length,'aluno removido','alunos removidos')+'. As notas dos outros alunos continuam. Dá para desfazer em “Seus dados”.');
+  }});
+  var form=h('form',{class:'dlg',onsubmit:function(e){ e.preventDefault(); }},
+    h('h2',{text:'Remover alunos da turma'}),
+    h('p',{class:'lead',text:tName(c)+'. Só os alunos marcados saem, junto com as próprias notas. As notas dos demais não mudam, e uma cópia fica guardada para desfazer.'}),
+    h('div',{class:'actions'},
+      h('button',{type:'button',class:'btn',onclick:marcarSem,text:'Marcar os sem lançamentos'}),
+      h('button',{type:'button',class:'btn',onclick:marcarRepetidos,text:'Marcar nomes repetidos'}),
+      h('button',{type:'button',class:'btn',onclick:function(){ rows.forEach(function(r){r.cb.checked=false;}); upd(); },text:'Desmarcar todos'})),
+    list,info,
+    h('div',{class:'foot'},go,h('button',{type:'button',class:'btn',onclick:closeDialog,text:'Fechar'})));
+  upd(); openDialog(form,null,true);
+}
+
 /* ---------- Eventos ---------- */
 $('#q').addEventListener('input',renderGrid);
 $('#onlyPend').addEventListener('change',renderGrid);
@@ -2022,6 +2134,8 @@ $('#btnNewTurma').addEventListener('click',function(){openTurma(null);});
 $('#btnEditTurma').addEventListener('click',function(){ var c=curTurma(); if(c) openTurma(c); });
 $('#btnAddStu').addEventListener('click',openAddStudents);
 $('#btnImp').addEventListener('click',openImportPdf);
+$('#btnSiap').addEventListener('click',openEnviarSiap);
+$('#btnDelStu').addEventListener('click',openRemoverAlunos);
 $('#btnCsv').addEventListener('click',exportCsv);
 $('#btnJson').addEventListener('click',exportJson);
 $('#btnRestore').addEventListener('click',function(){$('#fileIn').click();});
